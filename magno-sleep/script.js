@@ -16,7 +16,49 @@ function getOppositeDirection(direction) {
   }
 }
 
-// Get User Location
+function startCompass() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS
+    DeviceOrientationEvent.requestPermission().then(permissionState => {
+      if (permissionState === 'granted') {
+        window.addEventListener("deviceorientation", handleOrientation);
+      } else {
+        alert("Compass access denied.");
+      }
+    });
+  } else {
+    // Android
+    window.addEventListener("deviceorientationabsolute", handleOrientation);
+  }
+}
+
+function handleOrientation(e) {
+  if (e.alpha !== null) {
+    const azimuth = e.alpha;
+    const rounded = Math.round(azimuth);
+    const direction = getDirectionFromAzimuth(azimuth);
+    const avoid = getOppositeDirection(direction);
+
+    const needle = document.getElementById("needle");
+    if (needle) {
+      needle.style.transform = `rotate(${azimuth}deg)`;
+    }
+
+    document.getElementById("heading").textContent =
+      `🧭 Magnetic Direction: ${direction} (${rounded}°)`;
+
+    document.getElementById("advice").textContent =
+      `✅ Sleep with your head facing **${direction}**.\n🚫 Avoid sleeping with head towards **${avoid}**.`;
+  } else {
+    document.getElementById("heading").textContent = "❌ Magnetic data not available.";
+  }
+}
+
+// Hook up button
+document.getElementById("enable-sensors").addEventListener("click", startCompass);
+
+// Geolocation
 navigator.geolocation.getCurrentPosition(
   (pos) => {
     const { latitude, longitude } = pos.coords;
@@ -27,29 +69,3 @@ navigator.geolocation.getCurrentPosition(
     document.getElementById("location").textContent = "❌ Location access denied.";
   }
 );
-
-// Compass Rotation
-window.addEventListener("deviceorientationabsolute", (e) => {
-  if (e.alpha !== null) {
-    const azimuth = e.alpha; // compass heading
-    const rounded = Math.round(azimuth);
-    const direction = getDirectionFromAzimuth(azimuth);
-    const avoid = getOppositeDirection(direction);
-
-    // Rotate needle
-    const needle = document.getElementById("needle");
-    if (needle) {
-      needle.style.transform = `rotate(${azimuth}deg)`;
-    }
-
-    // Update text
-    document.getElementById("heading").textContent =
-      `🧭 Magnetic Direction: ${direction} (${rounded}°)`;
-
-    document.getElementById("advice").textContent =
-      `✅ Sleep with your head facing **${direction}**.\n🚫 Avoid sleeping with head towards **${avoid}**.`;
-  } else {
-    document.getElementById("heading").textContent =
-      "❌ Magnetic data not available.";
-  }
-});
