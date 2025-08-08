@@ -1,71 +1,36 @@
-function getDirectionFromAzimuth(deg) {
-  if (deg >= 315 || deg <= 45) return 'North';
-  if (deg > 45 && deg <= 135) return 'East';
-  if (deg > 135 && deg <= 225) return 'South';
-  if (deg > 225 && deg < 315) return 'West';
-  return 'Unknown';
-}
-
-function getOppositeDirection(direction) {
-  switch (direction) {
-    case 'North': return 'South';
-    case 'South': return 'North';
-    case 'East': return 'West';
-    case 'West': return 'East';
-    default: return 'Unknown';
-  }
-}
-
 function startCompass() {
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS
-    DeviceOrientationEvent.requestPermission().then(permissionState => {
-      if (permissionState === 'granted') {
-        window.addEventListener("deviceorientation", handleOrientation);
+    DeviceOrientationEvent.requestPermission().then(state => {
+      if (state === 'granted') {
+        window.addEventListener('deviceorientation', handleOrientation);
       } else {
-        alert("Compass access denied.");
+        alert('Compass access denied.');
       }
-    });
+    }).catch(console.error);
   } else {
-    // Android
-    window.addEventListener("deviceorientationabsolute", handleOrientation);
+    // fallback for other browsers/devices
+    window.addEventListener('deviceorientationabsolute', handleOrientation);
+    window.addEventListener('deviceorientation', handleOrientation);
   }
 }
 
 function handleOrientation(e) {
-  if (e.alpha !== null) {
-    const azimuth = e.alpha;
-    const rounded = Math.round(azimuth);
-    const direction = getDirectionFromAzimuth(azimuth);
-    const avoid = getOppositeDirection(direction);
-
-    const needle = document.getElementById("needle");
-    if (needle) {
-      needle.style.transform = `rotate(${azimuth}deg)`;
-    }
-
-    document.getElementById("heading").textContent =
-      `🧭 Magnetic Direction: ${direction} (${rounded}°)`;
-
-    document.getElementById("advice").textContent =
-      `✅ Sleep with your head facing **${direction}**.\n🚫 Avoid sleeping with head towards **${avoid}**.`;
+  const alpha = e.alpha ?? (e.webkitCompassHeading !== undefined ? e.webkitCompassHeading : null);
+  if (alpha !== null) {
+    const azimuth = (e.webkitCompassHeading !== undefined) ? e.webkitCompassHeading : alpha;
+    rotateNeedle(azimuth);
   } else {
-    document.getElementById("heading").textContent = "❌ Magnetic data not available.";
+    document.getElementById('heading').textContent = '❌ Magnetic data not available.';
   }
 }
 
-// Hook up button
-document.getElementById("enable-sensors").addEventListener("click", startCompass);
+function rotateNeedle(azimuth) {
+  const rounded = Math.round(azimuth);
+  const direction = getDirectionFromAzimuth(azimuth);
+  const avoid = getOppositeDirection(direction);
 
-// Geolocation
-navigator.geolocation.getCurrentPosition(
-  (pos) => {
-    const { latitude, longitude } = pos.coords;
-    document.getElementById("location").textContent =
-      `📍 Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
-  },
-  (err) => {
-    document.getElementById("location").textContent = "❌ Location access denied.";
-  }
-);
+  document.getElementById('needle').style.transform = `rotate(${azimuth}deg)`;
+  document.getElementById('heading').textContent = `🧭 Magnetic Direction: ${direction} (${rounded}°)`;
+  document.getElementById('advice').textContent = `✅ Sleep facing **${direction}**.\n🚫 Avoid **${avoid}**.`;
+}
